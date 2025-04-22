@@ -3,47 +3,117 @@
 namespace App\Http\Controllers;
 
 use App\Models\Confectionery;
+use App\Models\Address;
+use App\Http\Requests\StoreConfectioneryRequest;
+use App\Services\CepService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ConfectioneryController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
+    protected $cepService;
+
+    public function __construct(CepService $cepService)
+    {
+        $this->cepService = $cepService;
+    }
+
     public function index()
     {
-        //
+        $confectioneries = Confectionery::with('address')->get();
+        return response()->json($confectioneries);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
-    public function store(Request $request)
+    public function store(StoreConfectioneryRequest $request)
     {
-        //
+        try {
+            DB::beginTransaction();
+
+            // If CEP is provided, fetch address details
+            if ($request->input('address.cep')) {
+                $cepData = $this->cepService->getAddressFromCep($request->input('address.cep'));
+                
+                if ($cepData) {
+                    // Pre-fill address fields if not provided
+                    $request->merge([
+                        'address' => array_merge($request->input('address', []), [
+                            'street' => $request->input('address.street', $cepData['street']),
+                            'neighborhood' => $request->input('address.neighborhood', $cepData['neighborhood']),
+                            'city' => $request->input('address.city', $cepData['city']),
+                            'state' => $request->input('address.state', $cepData['state'])
+                        ])
+                    ]);
+                }
+            }
+
+            // Create address first
+            $address = Address::create($request->input('address'));
+
+            // Create confectionery with address
+            $confectionery = Confectionery::create([
+                'name' => $request->input('name'),
+                'latitude' => $request->input('latitude'),
+                'longitude' => $request->input('longitude'),
+                'phone' => $request->input('phone'),
+                'address_id' => $address->id
+            ]);
+
+            DB::commit();
+            return response()->json($confectionery->load('address'), 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Erro ao criar confeitaria'], 500);
+        }
     }
 
-    /**
-     * Display the specified resource.
-     */
     public function show(Confectionery $confectionery)
     {
-        //
+        return response()->json($confectionery->load(['address', 'products.images']));
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Confectionery $confectionery)
+    public function update(StoreConfectioneryRequest $request, Confectionery $confectionery)
     {
-        //
+        try {
+            DB::beginTransaction();
+
+            // Update address
+            $confectionery->address->update($request->input('address'));
+
+            // Update confectionery
+            $confectionery->update([
+                'name' => $request->input('name'),
+                'latitude' => $request->input('latitude'),
+                'longitude' => $request->input('longitude'),
+                'phone' => $request->input('phone')
+            ]);
+
+            DB::commit();
+            return response()->json($confectionery->load('address'));
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Erro ao atualizar confeitaria'], 500);
+        }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Confectionery $confectionery)
     {
-        //
+        try {
+            DB::beginTransaction();
+            
+            // Due to onDelete('cascade') in migrations, this will automatically delete:
+            // 1. All products associated with this confectionery
+            // 2. All product images
+            // 3. The address
+            $confectionery->delete();
+            
+            DB::commit();
+            return response()->json(null, 204);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['error' => 'Erro ao deletar confeitaria'], 500);
+        }
     }
 }
