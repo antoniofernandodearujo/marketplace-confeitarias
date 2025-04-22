@@ -20,8 +20,12 @@ class ConfectioneryController extends Controller
 
     public function index()
     {
-        $confectioneries = Confectionery::with('address')->get();
-        return response()->json($confectioneries);
+        $confectioneries = Confectionery::with(['address', 'products.images'])->get();
+        
+        return response()->json([
+            'confectioneries' => $confectioneries,
+            'products' => $confectioneries->pluck('products')->flatten()
+        ]);
     }
 
     public function store(StoreConfectioneryRequest $request)

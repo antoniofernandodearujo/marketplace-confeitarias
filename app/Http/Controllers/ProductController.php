@@ -7,21 +7,32 @@ use App\Models\Confectionery;
 use App\Http\Requests\StoreProductRequest;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
+    public function index()
+    {
+        $products = Product::with(['images', 'confectionery'])->get();
+        return response()->json($products);
+    }
+
+    public function show(Product $product)
+    {
+        return response()->json($product->load(['images', 'confectionery']));
+    }
+
     public function store(StoreProductRequest $request)
     {
         try {
             DB::beginTransaction();
+            
+            $validatedData = $request->validated();
+            
+            // Create the product
+            $product = Product::create($validatedData);
 
-            // Check if confectionery exists
-            $confectionery = Confectionery::findOrFail($request->confectionery_id);
-
-            // Create the product associated with the confectionery
-            $product = $confectionery->products()->create($request->validated());
-
-            // Handle multiple image uploads
+            // Handle image uploads
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
                     $path = $image->store('products', 'public');
@@ -30,18 +41,11 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            
-            // Return product with its images
             return response()->json($product->load('images'), 201);
 
         } catch (\Exception $e) {
             DB::rollBack();
-            // Delete any uploaded files if they exist
-            if (isset($paths)) {
-                foreach ($paths as $path) {
-                    Storage::disk('public')->delete($path);
-                }
-            }
+            Log::error('Erro ao criar produto: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao criar produto'], 500);
         }
     }
@@ -51,9 +55,12 @@ class ProductController extends Controller
         try {
             DB::beginTransaction();
 
-            $product->update($request->validated());
+            $validatedData = $request->validated();
+            
+            // Update product data
+            $product->update($validatedData);
 
-            // Handle additional images
+            // Handle new image uploads
             if ($request->hasFile('images')) {
                 foreach ($request->file('images') as $image) {
                     $path = $image->store('products', 'public');
@@ -66,6 +73,7 @@ class ProductController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Erro ao atualizar produto: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao atualizar produto'], 500);
         }
     }
@@ -75,7 +83,7 @@ class ProductController extends Controller
         try {
             DB::beginTransaction();
 
-            // Delete all associated images from storage
+            // Delete images from storage and database
             foreach ($product->images as $image) {
                 Storage::disk('public')->delete($image->image_path);
                 $image->delete();
@@ -88,6 +96,7 @@ class ProductController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Erro ao deletar produto: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao deletar produto'], 500);
         }
     }

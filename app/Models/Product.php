@@ -12,11 +12,15 @@ class Product extends Model
         'name',
         'price',
         'description',
-        'confectionery_id'
+        'confectionery_id',
+        'latitude',
+        'longitude'
     ];
 
     protected $casts = [
-        'price' => 'decimal:2'
+        'price' => 'decimal:2',
+        'latitude' => 'decimal:8',
+        'longitude' => 'decimal:8'
     ];
 
     public function confectionery(): BelongsTo

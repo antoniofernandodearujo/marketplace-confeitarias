@@ -13,7 +13,10 @@ class StoreProductRequest extends FormRequest
             'price' => ['required', 'numeric', 'min:0'],
             'description' => ['nullable', 'string'],
             'confectionery_id' => ['required', 'exists:confectioneries,id'],
-            'images.*' => ['required', 'image', 'max:2048'] // 2MB max
+            'images' => ['nullable', 'array'],
+            'images.*' => ['nullable', 'image', 'max:2048'], // 2MB max
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180']
         ];
     }
 }

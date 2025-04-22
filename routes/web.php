@@ -6,7 +6,14 @@ use App\Http\Controllers\ProductController;
 use Inertia\Inertia;
 
 Route::get('/', function () {
-    return Inertia::render('Home');
+    $confectioneryController = app(ConfectioneryController::class);
+    $response = $confectioneryController->index();
+    $data = json_decode($response->getContent());
+    
+    return Inertia::render('Marketplace', [
+        'initialConfectioneries' => $data->confectioneries,
+        'initialProducts' => $data->products
+    ]);
 });
 
 Route::prefix('confectioneries')->group(function () {
