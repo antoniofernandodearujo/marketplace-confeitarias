@@ -194,22 +194,30 @@ const handleSubmit = async () => {
 
   try {
     const formData = new FormData();
+    
+    // Dados principais do produto
     formData.append('name', form.name);
     formData.append('price', form.price.toString());
-    formData.append('description', form.description || '');
-    formData.append('confectionery_id', props.confectioneryId?.toString() || '');
+    formData.append('description', form.description);
+    if (props.confectioneryId) {
+      formData.append('confectionery_id', props.confectioneryId.toString());
+    }
 
     // Adiciona as novas imagens
-    form.images.forEach((file: File) => {
-      if (file instanceof File) {
-        formData.append('images[]', file);
-      }
-    });
+    if (form.images.length > 0) {
+      form.images.forEach((file) => {
+        if (file instanceof File) {
+          formData.append('images[]', file);
+        }
+      });
+    }
 
     let response;
     if (props.isEditing && props.initialData?.id) {
+      // Se estiver editando, usamos PATCH
       response = await ProductAPI.update(props.initialData.id, formData);
     } else {
+      // Se for novo produto, usamos POST
       response = await ProductAPI.create(formData);
     }
 

@@ -39,8 +39,8 @@
             <input 
               type="text" 
               id="cep" 
-              v-model="form.cep"
-              :class="{'border-red-500': v$.cep.$error}"
+              v-model="form.address.cep"
+              :class="{'border-red-500': v$.address.cep.$error}"
               class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               required
             />
@@ -53,7 +53,7 @@
               {{ isLoadingAddress ? 'Buscando...' : 'Buscar' }}
             </button>
           </div>
-          <span v-if="v$.cep.$error" class="text-xs text-red-500">{{ v$.cep.$errors[0].$message }}</span>
+          <span v-if="v$.address.cep.$error" class="text-xs text-red-500">{{ v$.address.cep.$errors[0].$message }}</span>
           <span v-if="addressError" class="text-xs text-red-500">{{ addressError }}</span>
         </div>
 
@@ -136,28 +136,28 @@
             <div class="flex-1">
               <label for="latitude" class="block text-xs text-gray-600 mb-1">Latitude</label>
               <input 
-                type="number" 
+                type="text" 
                 id="latitude" 
-                v-model.number="form.latitude"
-                step="any"
-                :class="{'border-red-500': v$.latitude.$error}"
+                v-model="form.latitude"
+                :class="{'border-red-500': v$.latitude.$error && v$.latitude.$dirty}"
                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                @blur="v$.latitude.$touch()"
                 required
               />
-              <span v-if="v$.latitude.$error" class="text-xs text-red-500">{{ v$.latitude.$errors[0].$message }}</span>
+              <span v-if="v$.latitude.$error && v$.latitude.$dirty" class="text-xs text-red-500">Coordenada inválida</span>
             </div>
             <div class="flex-1">
               <label for="longitude" class="block text-xs text-gray-600 mb-1">Longitude</label>
               <input 
-                type="number" 
+                type="text" 
                 id="longitude" 
-                v-model.number="form.longitude"
-                step="any"
-                :class="{'border-red-500': v$.longitude.$error}"
+                v-model="form.longitude"
+                :class="{'border-red-500': v$.longitude.$error && v$.longitude.$dirty}"
                 class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                @blur="v$.longitude.$touch()"
                 required
               />
-              <span v-if="v$.longitude.$error" class="text-xs text-red-500">{{ v$.longitude.$errors[0].$message }}</span>
+              <span v-if="v$.longitude.$error && v$.longitude.$dirty" class="text-xs text-red-500">Coordenada inválida</span>
             </div>
             <div class="flex items-end">
               <button 
@@ -197,10 +197,17 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
 import { useVuelidate } from '@vuelidate/core';
-import { required, numeric, minLength } from '@vuelidate/validators';
+import { required, helpers, minLength, maxLength } from '@vuelidate/validators';
 import L from 'leaflet';
 import axios from 'axios';
 import { ConfectioneryAPI } from '@/services/api';
+
+// Validador personalizado para coordenadas
+const isValidCoordinate = (value) => {
+  if (value === null || value === undefined || value === '') return false;
+  const number = Number(value);
+  return !isNaN(number) && String(number).match(/^-?\d+\.?\d*$/);
+};
 
 const props = defineProps<{
   initialData?: any;
@@ -208,39 +215,45 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: 'submit', data: any): void;
+  (e: 'submit', data?: any): void;
   (e: 'cancel'): void;
 }>();
 
 const form = reactive({
   name: '',
   phone: '',
-  cep: '',
+  latitude: null,
+  longitude: null,
   address: {
+    cep: '',
     street: '',
     number: '',
     neighborhood: '',
     city: '',
     state: ''
-  },
-  latitude: null as number | null,
-  longitude: null as number | null
+  }
 });
 
 // Validação
 const rules = {
   name: { required },
   phone: { required, minLength: minLength(10) },
-  cep: { required, minLength: minLength(8) },
   address: {
+    cep: { required, minLength: minLength(8) },
     street: { required },
     number: { required },
     neighborhood: { required },
-    city: { required },
-    state: { required }
+    city: { required }, 
+    state: { required, minLength: minLength(2), maxLength: maxLength(2) }
   },
-  latitude: { required, numeric },
-  longitude: { required, numeric }
+  latitude: { 
+    required,
+    valid: helpers.withMessage('Coordenada inválida', isValidCoordinate)
+  },
+  longitude: { 
+    required,
+    valid: helpers.withMessage('Coordenada inválida', isValidCoordinate)
+  }
 };
 
 const v$ = useVuelidate(rules, form);
@@ -260,7 +273,7 @@ onMounted(() => {
     
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors'
-    }).addTo(map.value);
+    }).addTo(map.value as L.Map);
 
     map.value.on('click', (e: L.LeafletMouseEvent) => {
       form.latitude = parseFloat(e.latlng.lat.toString());
@@ -283,24 +296,29 @@ onBeforeUnmount(() => {
 
 // Métodos
 const updateMarker = () => {
-  if (!map.value || !form.latitude || !form.longitude) return;
+  if (!map.value || form.latitude === null || form.longitude === null) return;
 
   if (marker.value) {
     marker.value.remove();
   }
 
-  marker.value = L.marker([form.latitude, form.longitude]).addTo(map.value);
-  map.value.setView([form.latitude, form.longitude], 15);
+  const lat = parseFloat(form.latitude);
+  const lng = parseFloat(form.longitude);
+  
+  if (isNaN(lat) || isNaN(lng)) return;
+  
+  marker.value = L.marker([lat, lng]).addTo(map.value);
+  map.value.setView([lat, lng], 15);
 };
 
 const searchAddress = async () => {
-  if (!form.cep) return;
+  if (!form.address.cep) return;
 
   isLoadingAddress.value = true;
   addressError.value = '';
 
   try {
-    const response = await axios.get(`https://viacep.com.br/ws/${form.cep}/json/`);
+    const response = await axios.get(`https://viacep.com.br/ws/${form.address.cep}/json/`);
     const data = response.data;
 
     if (data.erro) {
@@ -359,29 +377,35 @@ const getCurrentLocation = () => {
 };
 
 const handleSubmit = async () => {
-  // Converter latitude e longitude para número antes da validação
-  form.latitude = parseFloat(form.latitude as unknown as string);
-  form.longitude = parseFloat(form.longitude as unknown as string);
-
   const valid = await v$.value.$validate();
   if (!valid) return;
 
   isSubmitting.value = true;
 
   try {
-    const data = {
-      ...form,
-      latitude: form.latitude,
-      longitude: form.longitude
+    const formData = {
+      name: form.name,
+      phone: form.phone,
+      latitude: form.latitude !== null ? parseFloat(form.latitude) : null,
+      longitude: form.longitude !== null ? parseFloat(form.longitude) : null,
+      address: {
+        cep: form.address.cep,
+        street: form.address.street,
+        number: form.address.number,
+        neighborhood: form.address.neighborhood,
+        city: form.address.city,
+        state: form.address.state
+      }
     };
 
+    let response;
     if (props.isEditing && props.initialData?.id) {
-      await ConfectioneryAPI.update(props.initialData.id, data);
+      response = await ConfectioneryAPI.update(props.initialData.id, formData);
     } else {
-      await ConfectioneryAPI.create(data);
+      response = await ConfectioneryAPI.create(formData);
     }
 
-    emit('submit', data);
+    emit('submit', response?.data);
   } catch (error) {
     console.error('Erro ao salvar confeitaria:', error);
     alert('Erro ao salvar confeitaria. Por favor, tente novamente.');

@@ -1,7 +1,6 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: '',
     headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
@@ -10,21 +9,9 @@ const api = axios.create({
 
 export const ConfectioneryAPI = {
     getAll: () => api.get('/confectioneries'),
-    get: (id: number) => api.get(`/confectioneries/${id}`),
-    create: (data: FormData) => {
-        return api.post('/confectioneries', data, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-    },
-    update: (id: number, data: FormData) => {
-        return api.put(`/confectioneries/${id}`, data, {
-            headers: {
-                'Content-Type': 'multipart/form-data',
-            },
-        });
-    },
+    show: (id: number) => api.get(`/confectioneries/${id}`),
+    create: (data: any) => api.post('/confectioneries', data),
+    update: (id: number, data: any) => api.patch(`/confectioneries/${id}`, data),
     delete: (id: number) => api.delete(`/confectioneries/${id}`),
 };
 
@@ -37,10 +24,13 @@ export const ProductAPI = {
         });
     },
     update: (id: number, data: FormData) => {
-        return api.put(`/products/${id}`, data, {
+        return api.post(`/products/${id}`, data, {
             headers: {
                 'Content-Type': 'multipart/form-data',
             },
+            params: {
+                _method: 'PATCH'
+            }
         });
     },
     delete: (id: number) => api.delete(`/products/${id}`),

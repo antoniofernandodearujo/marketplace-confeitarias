@@ -76,27 +76,47 @@ class ConfectioneryController extends Controller
         return response()->json($confectionery->load(['address', 'products.images']));
     }
 
-    public function update(StoreConfectioneryRequest $request, Confectionery $confectionery)
+    public function update(Request $request, Confectionery $confectionery)
     {
         try {
             DB::beginTransaction();
 
-            // Update address
-            $confectionery->address->update($request->input('address'));
+            // Update address if provided
+            if ($request->has('address')) {
+                $addressData = collect($request->input('address'))->only([
+                    'cep', 'street', 'number', 'neighborhood', 'city', 'state'
+                ])->filter()->toArray();
+                
+                if (!empty($addressData)) {
+                    $address = $confectionery->address;
+                    if (!$address) {
+                        $address = new Address($addressData);
+                        $address->save();
+                        $confectionery->address()->associate($address);
+                    } else {
+                        $address->update($addressData);
+                    }
+                }
+            }
 
-            // Update confectionery
-            $confectionery->update([
+            // Update confectionery fields if provided
+            $confectioneryData = collect([
                 'name' => $request->input('name'),
                 'latitude' => $request->input('latitude'),
                 'longitude' => $request->input('longitude'),
                 'phone' => $request->input('phone')
-            ]);
+            ])->filter()->toArray();
+
+            if (!empty($confectioneryData)) {
+                $confectionery->update($confectioneryData);
+            }
 
             DB::commit();
-            return response()->json($confectionery->load('address'));
+            return response()->json($confectionery->fresh()->load(['address', 'products.images']));
 
         } catch (\Exception $e) {
             DB::rollBack();
+            \Log::error('Erro ao atualizar confeitaria: ' . $e->getMessage());
             return response()->json(['error' => 'Erro ao atualizar confeitaria'], 500);
         }
     }

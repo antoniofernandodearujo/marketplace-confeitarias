@@ -8,6 +8,7 @@ use App\Http\Requests\StoreProductRequest;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
@@ -50,18 +51,45 @@ class ProductController extends Controller
         }
     }
 
-    public function update(StoreProductRequest $request, Product $product)
+    public function update(Request $request, Product $product)
     {
         try {
             DB::beginTransaction();
-
-            $validatedData = $request->validated();
             
-            // Update product data
-            $product->update($validatedData);
+            // Convert empty strings to null to avoid validation issues
+            $input = collect($request->all())->map(function ($value) {
+                return $value === '' ? null : $value;
+            })->toArray();
 
-            // Handle new image uploads
+            // Update only the fields that were sent
+            $updateData = collect($input)->only(['name', 'price', 'description', 'confectionery_id'])
+                ->filter()
+                ->toArray();
+
+            if (!empty($updateData)) {
+                // Validate the fields that are present
+                $rules = collect([
+                    'name' => ['string', 'max:255'],
+                    'price' => ['numeric', 'min:0'],
+                    'description' => ['nullable', 'string'],
+                    'confectionery_id' => ['exists:confectioneries,id']
+                ])->only(array_keys($updateData))->toArray();
+
+                $validator = validator($updateData, $rules);
+                $validator->validate();
+
+                $product->update($updateData);
+            }
+
+            // Handle image uploads if provided
             if ($request->hasFile('images')) {
+                // Remove existing images
+                foreach ($product->images as $image) {
+                    Storage::disk('public')->delete($image->image_path);
+                    $image->delete();
+                }
+
+                // Add new images
                 foreach ($request->file('images') as $image) {
                     $path = $image->store('products', 'public');
                     $product->images()->create(['image_path' => $path]);
@@ -69,12 +97,12 @@ class ProductController extends Controller
             }
 
             DB::commit();
-            return response()->json($product->load('images'));
+            return response()->json($product->fresh()->load(['images', 'confectionery']));
 
         } catch (\Exception $e) {
             DB::rollBack();
             Log::error('Erro ao atualizar produto: ' . $e->getMessage());
-            return response()->json(['error' => 'Erro ao atualizar produto'], 500);
+            return response()->json(['error' => 'Erro ao atualizar produto: ' . $e->getMessage()], 500);
         }
     }
 
