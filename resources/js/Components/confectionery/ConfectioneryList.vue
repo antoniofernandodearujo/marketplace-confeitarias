@@ -104,7 +104,7 @@ interface Product {
   name: string;
   price: number;
   description: string;
-  images: { url: string }[];
+  images: { id: number; url: string }[];
 }
 
 const props = withDefaults(defineProps<{

@@ -4,11 +4,16 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\File;
 
 class MockDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // Primeiro vamos garantir que a pasta de destino exista e preparar as imagens
+        $this->prepareProductImages();
+        
         // Inserindo endereços mockados
         $addresses = [
             [
@@ -179,16 +184,84 @@ class MockDataSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
-            [
-                'image_path' => 'products/quindim-1.jpg',
-                'product_id' => $productIds[5],
-                'created_at' => now(),
-                'updated_at' => now(),
-            ],
         ];
 
         foreach ($images as $image) {
             DB::table('product_images')->insert($image);
+        }
+    }
+    
+    /**
+     * Prepara e copia as imagens de produtos para o storage
+     */
+    private function prepareProductImages(): void
+    {
+        // Cria a pasta de destino se não existir
+        $destinationPath = storage_path('app/public/products');
+        if (!File::exists($destinationPath)) {
+            File::makeDirectory($destinationPath, 0755, true);
+        }
+        
+        // Lista de imagens para copiar
+        $images = [
+            'torta-morango-1.jpg',
+            'brigadeiros-1.jpg',
+            'cheesecake-1.jpg',
+            'pudim-1.jpg',
+        ];
+        
+        // Copiamos as imagens do diretório de sementes para o storage público
+        foreach ($images as $image) {
+            $sourcePath = database_path('seeders/images/' . $image);
+            $targetPath = $destinationPath . '/' . $image;
+            
+            // Se a imagem fonte existir, copiamos para o destino
+            if (File::exists($sourcePath)) {
+                File::copy($sourcePath, $targetPath);
+            } else {
+                // Se não existir, criamos uma imagem placeholder
+                $this->createPlaceholderImage($targetPath, $image);
+            }
+        }
+        
+        // Criamos o symlink para o storage se não existir
+        $this->createStorageLink();
+    }
+    
+    /**
+     * Cria uma imagem placeholder se a imagem original não existir
+     */
+    private function createPlaceholderImage(string $path, string $filename): void
+    {
+        // Cria uma imagem básica com o nome do arquivo
+        $img = imagecreatetruecolor(400, 300);
+        $bgColor = imagecolorallocate($img, 230, 230, 230);
+        $textColor = imagecolorallocate($img, 50, 50, 50);
+        
+        imagefill($img, 0, 0, $bgColor);
+        imagestring($img, 5, 100, 140, 'Placeholder: ' . $filename, $textColor);
+        
+        imagejpeg($img, $path, 90);
+        imagedestroy($img);
+    }
+    
+    /**
+     * Cria o symbolic link para o storage se não existir
+     */
+    private function createStorageLink(): void
+    {
+        $publicPath = public_path('storage');
+        
+        // Se o link simbólico não existir, tentamos criá-lo
+        if (!File::exists($publicPath)) {
+            try {
+                // Criamos o link manualmente em vez de usar o comando Artisan
+                File::link(storage_path('app/public'), $publicPath);
+            } catch (\Exception $e) {
+                // Em caso de erro, mostramos apenas uma mensagem
+                echo "Não foi possível criar o link simbólico para o storage.\n";
+                echo "Execute o comando: php artisan storage:link\n";
+            }
         }
     }
 }

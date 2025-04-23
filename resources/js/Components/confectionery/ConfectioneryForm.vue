@@ -21,14 +21,17 @@
         <!-- Telefone -->
         <div>
           <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Telefone</label>
-          <input 
-            type="tel" 
-            id="phone" 
-            v-model="form.phone"
-            :class="{'border-red-500': v$.phone.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            required
-          />
+          <div class="w-full">
+            <input 
+              type="tel" 
+              id="phone" 
+              v-model="form.phone"
+              v-imask="{ mask: '(00) 00000-0000' }"
+              :class="{'border-red-500': v$.phone.$error}"
+              class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="(00) 00000-0000"
+            />
+          </div>
           <span v-if="v$.phone.$error" class="text-xs text-red-500">{{ v$.phone.$errors[0].$message }}</span>
         </div>
 
@@ -40,17 +43,20 @@
               type="text" 
               id="cep" 
               v-model="form.address.cep"
+              v-imask="{ mask: '00000-000' }"
               :class="{'border-red-500': v$.address.cep.$error}"
               class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              required
+              placeholder="00000-000"
+              @accept="searchAddress"
             />
             <button 
-              type="button" 
+              type="button"
               @click="searchAddress"
-              :disabled="isLoadingAddress"
+              :disabled="isLoadingAddress || !form.address.cep"
               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
             >
-              {{ isLoadingAddress ? 'Buscando...' : 'Buscar' }}
+              <span v-if="!isLoadingAddress">Buscar</span>
+              <span v-else>Buscando...</span>
             </button>
           </div>
           <span v-if="v$.address.cep.$error" class="text-xs text-red-500">{{ v$.address.cep.$errors[0].$message }}</span>
@@ -195,31 +201,78 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount } from 'vue';
+/**
+ * Componente ConfectioneryForm
+ * 
+ * Formulário para criação e edição de confeitarias.
+ * Inclui:
+ * - Dados básicos da confeitaria
+ * - Endereço completo com busca automática por CEP
+ * - Seleção de localização geográfica via mapa interativo
+ */
+import { ref, reactive, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useVuelidate } from '@vuelidate/core';
 import { required, helpers, minLength, maxLength } from '@vuelidate/validators';
 import L from 'leaflet';
-import axios from 'axios';
-import { ConfectioneryAPI } from '@/services/api';
+import { ConfectioneryAPI, AddressAPI } from '@/services/api';
+import { IMask } from 'vue-imask';
+import { useToast } from 'vue-toast-notification';
+import type { Confectionery, Address } from '@/types/';
 
-// Validador personalizado para coordenadas
-const isValidCoordinate = (value) => {
+// Sistema de notificações toast
+const toast = useToast();
+
+/**
+ * Interface para os dados do formulário
+ */
+interface FormData {
+  name: string;
+  phone: string;
+  latitude: string | null;
+  longitude: string | null;
+  address: {
+    cep: string;
+    street: string;
+    number: string;
+    neighborhood: string;
+    city: string;
+    state: string;
+  }
+}
+
+/**
+ * Validador personalizado para coordenadas geográficas
+ * 
+ * @param value Valor da coordenada a validar
+ * @returns boolean Indica se a coordenada é válida
+ */
+const isValidCoordinate = (value: string | null | undefined): boolean => {
   if (value === null || value === undefined || value === '') return false;
   const number = Number(value);
-  return !isNaN(number) && String(number).match(/^-?\d+\.?\d*$/);
+  return !isNaN(number) && Boolean(String(number).match(/^-?\d+\.?\d*$/));
 };
 
-const props = defineProps<{
-  initialData?: any;
+// Props do componente
+interface Props {
+  initialData?: Confectionery & { address: Address };
   isEditing?: boolean;
-}>();
+}
 
+const props = withDefaults(defineProps<Props>(), {
+  initialData: undefined,
+  isEditing: false
+});
+
+// Eventos emitidos pelo componente
 const emit = defineEmits<{
-  (e: 'submit', data?: any): void;
+  (e: 'submit', data: Confectionery): void;
   (e: 'cancel'): void;
 }>();
 
-const form = reactive({
+/**
+ * Estado reativo do formulário
+ */
+const form = reactive<FormData>({
   name: '',
   phone: '',
   latitude: null,
@@ -234,31 +287,46 @@ const form = reactive({
   }
 });
 
-// Validação
+/**
+ * Regras de validação do formulário
+ */
 const rules = {
-  name: { required },
-  phone: { required, minLength: minLength(10) },
+  name: { 
+    required: helpers.withMessage('O nome é obrigatório', required) 
+  },
+  phone: { 
+    required: helpers.withMessage('O telefone é obrigatório', required), 
+    minLength: helpers.withMessage('Telefone inválido', minLength(10)) 
+  },
   address: {
-    cep: { required, minLength: minLength(8) },
-    street: { required },
-    number: { required },
-    neighborhood: { required },
-    city: { required }, 
-    state: { required, minLength: minLength(2), maxLength: maxLength(2) }
+    cep: { 
+      required: helpers.withMessage('O CEP é obrigatório', required),
+      minLength: helpers.withMessage('CEP inválido', minLength(8)) 
+    },
+    street: { required: helpers.withMessage('A rua é obrigatória', required) },
+    number: { required: helpers.withMessage('O número é obrigatório', required) },
+    neighborhood: { required: helpers.withMessage('O bairro é obrigatório', required) },
+    city: { required: helpers.withMessage('A cidade é obrigatória', required) }, 
+    state: { 
+      required: helpers.withMessage('O estado é obrigatório', required), 
+      minLength: helpers.withMessage('Use a sigla do estado (2 letras)', minLength(2)), 
+      maxLength: helpers.withMessage('Use a sigla do estado (2 letras)', maxLength(2)) 
+    }
   },
   latitude: { 
-    required,
+    required: helpers.withMessage('A latitude é obrigatória', required),
     valid: helpers.withMessage('Coordenada inválida', isValidCoordinate)
   },
   longitude: { 
-    required,
+    required: helpers.withMessage('A longitude é obrigatória', required),
     valid: helpers.withMessage('Coordenada inválida', isValidCoordinate)
   }
 };
 
+// Instância de validação
 const v$ = useVuelidate(rules, form);
 
-// Estado
+// Estado do componente
 const isSubmitting = ref(false);
 const isLoadingAddress = ref(false);
 const addressError = ref('');
@@ -266,149 +334,250 @@ const locationMap = ref<HTMLElement | null>(null);
 const map = ref<L.Map | null>(null);
 const marker = ref<L.Marker | null>(null);
 
-// Inicializar mapa
+/**
+ * Coordenadas do Brasil para centralização inicial do mapa
+ */
+const BRAZIL_COORDS = {
+  lat: -15.77972,
+  lng: -47.92972,
+  zoom: 4
+};
+
+/**
+ * Coordenadas atuais para o mapa (computed para evitar NaN)
+ */
+const currentCoords = computed(() => {
+  const lat = form.latitude ? parseFloat(form.latitude) : BRAZIL_COORDS.lat;
+  const lng = form.longitude ? parseFloat(form.longitude) : BRAZIL_COORDS.lng;
+  
+  // Retorna apenas coordenadas válidas
+  if (isNaN(lat) || isNaN(lng)) {
+    return { lat: BRAZIL_COORDS.lat, lng: BRAZIL_COORDS.lng };
+  }
+  
+  return { lat, lng };
+});
+
+/**
+ * Inicializa o mapa Leaflet quando o componente é montado
+ */
 onMounted(() => {
   if (locationMap.value) {
-    map.value = L.map(locationMap.value).setView([-15.77972, -47.92972], 4);
+    // Inicializa o mapa com as coordenadas do Brasil por padrão
+    map.value = L.map(locationMap.value).setView(
+      [BRAZIL_COORDS.lat, BRAZIL_COORDS.lng], 
+      BRAZIL_COORDS.zoom
+    );
     
+    // Adiciona a camada base do OpenStreetMap
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors'
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19
     }).addTo(map.value as L.Map);
 
+    // Configura o evento de clique no mapa para atualizar coordenadas
     map.value.on('click', (e: L.LeafletMouseEvent) => {
-      form.latitude = parseFloat(e.latlng.lat.toString());
-      form.longitude = parseFloat(e.latlng.lng.toString());
+      form.latitude = e.latlng.lat.toString();
+      form.longitude = e.latlng.lng.toString();
       updateMarker();
     });
 
+    // Se estiver editando, carrega os dados iniciais
     if (props.initialData) {
-      Object.assign(form, props.initialData);
+      // Preenche o formulário com os dados existentes
+      form.name = props.initialData.name;
+      form.phone = props.initialData.phone;
+      form.latitude = props.initialData.latitude?.toString() || null;
+      form.longitude = props.initialData.longitude?.toString() || null;
+      
+      if (props.initialData.address) {
+        form.address = {
+          cep: props.initialData.address.cep || '',
+          street: props.initialData.address.street || '',
+          number: props.initialData.address.number || '',
+          neighborhood: props.initialData.address.neighborhood || '',
+          city: props.initialData.address.city || '',
+          state: props.initialData.address.state || ''
+        };
+      }
+      
+      // Atualiza o marcador no mapa
       updateMarker();
     }
   }
 });
 
+/**
+ * Limpa recursos do mapa quando o componente é desmontado
+ */
 onBeforeUnmount(() => {
   if (map.value) {
     map.value.remove();
   }
 });
 
-// Métodos
+/**
+ * Atualiza a posição do marcador no mapa 
+ * baseado nas coordenadas atuais do formulário
+ */
 const updateMarker = () => {
-  if (!map.value || form.latitude === null || form.longitude === null) return;
+  if (!map.value) return;
 
+  const coords = currentCoords.value;
+
+  // Remove o marcador existente se houver
   if (marker.value) {
     marker.value.remove();
   }
 
-  const lat = parseFloat(form.latitude);
-  const lng = parseFloat(form.longitude);
+  // Adiciona novo marcador com as coordenadas atuais
+  marker.value = L.marker([coords.lat, coords.lng]);
+  marker.value.addTo(map.value as L.Map);
   
-  if (isNaN(lat) || isNaN(lng)) return;
-  
-  marker.value = L.marker([lat, lng]).addTo(map.value);
-  map.value.setView([lat, lng], 15);
+  // Centraliza o mapa nas coordenadas com zoom adequado
+  (map.value as L.Map).setView([coords.lat, coords.lng], 15);
 };
 
+/**
+ * Busca informações de endereço a partir do CEP
+ */
 const searchAddress = async () => {
-  if (!form.address.cep) return;
+  // Valida se o CEP foi informado
+  if (!form.address.cep || form.address.cep.length < 8) {
+    addressError.value = 'Informe um CEP válido';
+    return;
+  }
 
   isLoadingAddress.value = true;
   addressError.value = '';
 
   try {
-    const response = await axios.get(`https://viacep.com.br/ws/${form.address.cep}/json/`);
+    // Remove caracteres não numéricos do CEP
+    const cepNumerico = form.address.cep.replace(/\D/g, '');
+    
+    // Consulta o endereço pela API
+    const response = await AddressAPI.fetchByCep(cepNumerico);
     const data = response.data;
 
-    if (data.erro) {
-      addressError.value = 'CEP não encontrado';
-      return;
-    }
+    // Preenche o formulário com os dados retornados
+    form.address.street = data.street || '';
+    form.address.neighborhood = data.neighborhood || '';
+    form.address.city = data.city || '';
+    form.address.state = data.state || '';
 
-    form.address.street = data.logradouro;
-    form.address.neighborhood = data.bairro;
-    form.address.city = data.localidade;
-    form.address.state = data.uf;
+    // Busca as coordenadas geográficas do endereço
+    try {
+      const searchQuery = `${data.street}, ${data.city}, ${data.state}, Brazil`;
+      const geoResponse = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}`
+      ).then(res => res.json());
 
-    // Buscar coordenadas
-    const geoResponse = await axios.get(
-      `https://nominatim.openstreetmap.org/search`,
-      {
-        params: {
-          street: data.logradouro,
-          city: data.localidade,
-          state: data.uf,
-          country: 'Brazil',
-          format: 'json'
-        }
+      if (geoResponse && geoResponse.length > 0) {
+        form.latitude = geoResponse[0].lat;
+        form.longitude = geoResponse[0].lon;
+        updateMarker();
       }
-    );
-
-    if (geoResponse.data.length > 0) {
-      form.latitude = parseFloat(geoResponse.data[0].lat);
-      form.longitude = parseFloat(geoResponse.data[0].lon);
-      updateMarker();
+    } catch (geoError) {
+      console.error('Erro ao buscar coordenadas:', geoError);
+      // Não exibe erro para o usuário, apenas no console
+      // pois as coordenadas podem ser inseridas manualmente
     }
   } catch (error) {
-    addressError.value = 'Erro ao buscar endereço';
-    console.error('Erro:', error);
+    addressError.value = 'CEP não encontrado ou serviço indisponível';
+    console.error('Erro ao buscar CEP:', error);
   } finally {
     isLoadingAddress.value = false;
   }
 };
 
+/**
+ * Obtém a localização atual do usuário usando Geolocation API
+ */
 const getCurrentLocation = () => {
   if (!navigator.geolocation) {
-    alert('Geolocalização não suportada pelo navegador');
+    toast.error('Geolocalização não suportada pelo seu navegador');
     return;
   }
 
+  toast.info('Obtendo sua localização atual...');
+
   navigator.geolocation.getCurrentPosition(
     (position) => {
-      form.latitude = parseFloat(position.coords.latitude.toString());
-      form.longitude = parseFloat(position.coords.longitude.toString());
+      form.latitude = position.coords.latitude.toString();
+      form.longitude = position.coords.longitude.toString();
       updateMarker();
+      toast.success('Localização obtida com sucesso!');
     },
     (error) => {
-      alert('Erro ao obter localização: ' + error.message);
+      let message = 'Erro ao obter localização';
+      switch (error.code) {
+        case 1: message = 'Permissão negada para acessar sua localização'; break;
+        case 2: message = 'Não foi possível determinar sua localização atual'; break;
+        case 3: message = 'Tempo esgotado ao tentar obter localização'; break;
+      }
+      toast.error(message);
+    },
+    { 
+      enableHighAccuracy: true, 
+      timeout: 10000,
+      maximumAge: 0
     }
   );
 };
 
+/**
+ * Envia o formulário para criar ou atualizar uma confeitaria
+ */
 const handleSubmit = async () => {
+  // Valida o formulário
   const valid = await v$.value.$validate();
   if (!valid) return;
 
   isSubmitting.value = true;
 
   try {
+    // Prepara os dados para envio
     const formData = {
       name: form.name,
-      phone: form.phone,
+      phone: form.phone.replace(/\D/g, ''), // Remove caracteres não-numéricos
       latitude: form.latitude !== null ? parseFloat(form.latitude) : null,
       longitude: form.longitude !== null ? parseFloat(form.longitude) : null,
       address: {
-        cep: form.address.cep,
+        cep: form.address.cep.replace(/\D/g, ''),
         street: form.address.street,
         number: form.address.number,
         neighborhood: form.address.neighborhood,
         city: form.address.city,
-        state: form.address.state
+        state: form.address.state.toUpperCase() // Garante que o estado esteja em maiúsculas
       }
     };
 
     let response;
     if (props.isEditing && props.initialData?.id) {
+      // Atualiza uma confeitaria existente
       response = await ConfectioneryAPI.update(props.initialData.id, formData);
+      toast.success(`Confeitaria ${form.name} atualizada com sucesso!`, {
+        position: 'top-right',
+        duration: 3000
+      });
     } else {
+      // Cria uma nova confeitaria
       response = await ConfectioneryAPI.create(formData);
+      toast.success(`Confeitaria ${form.name} cadastrada com sucesso!`, {
+        position: 'top-right',
+        duration: 3000
+      });
     }
 
-    emit('submit', response?.data);
-  } catch (error) {
+    // Emite evento de sucesso com os dados retornados
+    emit('submit', response.data);
+  } catch (error: any) {
     console.error('Erro ao salvar confeitaria:', error);
-    alert('Erro ao salvar confeitaria. Por favor, tente novamente.');
+    const errorMessage = error.response?.data?.error || 'Erro ao salvar confeitaria. Por favor, tente novamente.';
+    toast.error(errorMessage, {
+      position: 'top-right',
+      duration: 5000
+    });
   } finally {
     isSubmitting.value = false;
   }
