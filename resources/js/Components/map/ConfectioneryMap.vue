@@ -226,8 +226,8 @@ const initMap = () => {
 
 const loadSwiper = async (container: HTMLElement) => {
   try {
-    const { Swiper } = await import('swiper');
-    const { Navigation, Pagination, Autoplay } = await import('swiper/modules');
+    const Swiper = await import('swiper');
+    const { Navigation, Pagination, Autoplay } = await import('swiper');
     
     const swiperOptions: SwiperOptions = {
       modules: [Navigation, Pagination, Autoplay],
