@@ -7,9 +7,14 @@ Bem-vindo ao Marketplace Confeitarias! Este é um projeto desenvolvido para cone
 Para rodar este projeto localmente, você precisará ter instalado:
 
 *   **PHP:** (Recomendado versão 8.1 ou superior)
+    *   Download: [https://www.php.net/downloads](https://www.php.net/downloads)
 *   **Composer:** Gerenciador de dependências do PHP
+    *   Download/Instalação: [https://getcomposer.org/download/](https://getcomposer.org/download/)
 *   **Node.js & npm/yarn:** Para compilar os assets de frontend (Vue.js)
+    *   Download Node.js (inclui npm): [https://nodejs.org/](https://nodejs.org/)
+    *   Instalação Yarn (opcional): [https://yarnpkg.com/getting-started/install](https://yarnpkg.com/getting-started/install)
 *   **🐘 PostgreSQL:** O banco de dados utilizado neste projeto. Certifique-se de que o serviço esteja rodando.
+    *   Download: [https://www.postgresql.org/download/](https://www.postgresql.org/download/)
 
 ## 🚀 Instalação e Configuração
 
@@ -50,6 +55,7 @@ Siga estes passos para configurar o ambiente de desenvolvimento:
         ```bash
         php artisan session:table
         ```
+    *   **Aviso:** ⚠️ Se você receber a mensagem `ERROR Migration already exists.`, não se preocupe! Isso apenas significa que o arquivo de migration para a tabela de sessões já foi criado anteriormente. Pode ignorar este aviso e seguir para o próximo passo. 👍
 
 7.  **Rode as Migrations:** 🏗️
     *   Crie todas as tabelas no banco de dados PostgreSQL:
@@ -60,6 +66,7 @@ Siga estes passos para configurar o ambiente de desenvolvimento:
         ```bash
         php artisan migrate:fresh
         ```
+        *   **Atenção:** 🛑 O comando `migrate:fresh` **apaga todos os dados** do seu banco antes de recriar as tabelas. Use com cuidado!
 
 8.  **Compile os Assets de Frontend:** (Se necessário, dependendo da estrutura do projeto Vue/Blade)
     ```bash
