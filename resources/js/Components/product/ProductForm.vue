@@ -11,7 +11,7 @@
           id="name" 
           v-model="form.name"
           :class="{'border-red-500': v$.name.$error}"
-          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           placeholder="Digite o nome do produto"
           required
         />
@@ -30,7 +30,7 @@
             step="0.01"
             min="0"
             :class="{'border-red-500': v$.price.$error}"
-            class="w-full pl-12 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full pl-12 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             placeholder="0.00"
             required
           />
@@ -45,7 +45,7 @@
           id="description" 
           v-model="form.description"
           :class="{'border-red-500': v$.description.$error}"
-          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
           placeholder="Descreva o produto detalhadamente"
           rows="4"
           required
@@ -108,7 +108,7 @@
         <button 
           type="submit"
           :disabled="isSubmitting"
-          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
         >
           {{ isSubmitting ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar') }}
         </button>
