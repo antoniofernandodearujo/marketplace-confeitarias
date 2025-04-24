@@ -1,5 +1,3 @@
-List
-
 <template>
   <div class="space-y-8">
     <div v-for="confectionery in confectioneries" :key="confectionery.id" class="bg-white rounded-lg shadow-lg overflow-hidden">
