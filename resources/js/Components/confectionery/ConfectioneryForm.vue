@@ -12,7 +12,7 @@
             id="name" 
             v-model="form.name" 
             :class="{'border-red-500': v$.name.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.name.$error" class="text-xs text-red-500">{{ v$.name.$errors[0].$message }}</span>
@@ -28,7 +28,7 @@
               v-model="form.phone"
               v-imask="{ mask: '(00) 00000-0000' }"
               :class="{'border-red-500': v$.phone.$error}"
-              class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="(00) 00000-0000"
             />
           </div>
@@ -45,7 +45,7 @@
               v-model="form.address.cep"
               v-imask="{ mask: '00000-000' }"
               :class="{'border-red-500': v$.address.cep.$error}"
-              class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               placeholder="00000-000"
               @accept="searchAddress"
             />
@@ -53,7 +53,7 @@
               type="button"
               @click="searchAddress"
               :disabled="isLoadingAddress || !form.address.cep"
-              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
             >
               <span v-if="!isLoadingAddress">Buscar</span>
               <span v-else>Buscando...</span>
@@ -71,7 +71,7 @@
             id="street" 
             v-model="form.address.street"
             :class="{'border-red-500': v$.address.street.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.address.street.$error" class="text-xs text-red-500">{{ v$.address.street.$errors[0].$message }}</span>
@@ -85,7 +85,7 @@
             id="number" 
             v-model="form.address.number"
             :class="{'border-red-500': v$.address.number.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.address.number.$error" class="text-xs text-red-500">{{ v$.address.number.$errors[0].$message }}</span>
@@ -99,7 +99,7 @@
             id="neighborhood" 
             v-model="form.address.neighborhood"
             :class="{'border-red-500': v$.address.neighborhood.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.address.neighborhood.$error" class="text-xs text-red-500">{{ v$.address.neighborhood.$errors[0].$message }}</span>
@@ -113,7 +113,7 @@
             id="city" 
             v-model="form.address.city"
             :class="{'border-red-500': v$.address.city.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.address.city.$error" class="text-xs text-red-500">{{ v$.address.city.$errors[0].$message }}</span>
@@ -127,7 +127,7 @@
             id="state" 
             v-model="form.address.state"
             :class="{'border-red-500': v$.address.state.$error}"
-            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
             required
           />
           <span v-if="v$.address.state.$error" class="text-xs text-red-500">{{ v$.address.state.$errors[0].$message }}</span>
@@ -146,7 +146,7 @@
                 id="latitude" 
                 v-model="form.latitude"
                 :class="{'border-red-500': v$.latitude.$error && v$.latitude.$dirty}"
-                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 @blur="v$.latitude.$touch()"
                 required
               />
@@ -159,7 +159,7 @@
                 id="longitude" 
                 v-model="form.longitude"
                 :class="{'border-red-500': v$.longitude.$error && v$.longitude.$dirty}"
-                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                 @blur="v$.longitude.$touch()"
                 required
               />
@@ -169,7 +169,7 @@
               <button 
                 type="button"
                 @click="getCurrentLocation"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
               >
                 Usar Minha Localização
               </button>
@@ -191,7 +191,7 @@
         <button 
           type="submit"
           :disabled="isSubmitting"
-          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+          class="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50"
         >
           {{ isSubmitting ? 'Salvando...' : (isEditing ? 'Atualizar' : 'Cadastrar') }}
         </button>
