@@ -1,3 +1,5 @@
+List
+
 <template>
   <div class="space-y-8">
     <div v-for="confectionery in confectioneries" :key="confectionery.id" class="bg-white rounded-lg shadow-lg overflow-hidden">
@@ -20,7 +22,7 @@
             <button
               v-if="canEdit"
               @click="$emit('edit-confectionery', confectionery)"
-              class="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+              class="px-4 py-2 text-sm font-medium text-primary-600 hover:text-primary-800"
             >
               Editar
             </button>
@@ -42,7 +44,7 @@
           <button
             v-if="canAddProducts"
             @click="$emit('add-product', confectionery)"
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700"
           >
             Adicionar Produto
           </button>
